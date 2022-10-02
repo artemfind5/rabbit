@@ -41,7 +41,7 @@ def callback(ch, method, properties, body):
         print(e)
 
 def main():
-    callback(1,1,1,"/gdfhdfh/gzzяяяfdg/22/test/22/1.trt".encode())
+    #callback(1,1,1,"/gdfhdfh/gzzяяяfdg/22/test/22/1.trt".encode())
     connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
     channel = connection.channel()
