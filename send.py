@@ -4,27 +4,33 @@ import time
 from watchdog.observers import Observer
 # from watchdog.events import LoggingEventHandler
 from watchdog.events import FileSystemEventHandler
+import os
+from pika import exceptions
 
 class EventHandler(FileSystemEventHandler):
     # вызывается на событие создания файла или директории
     def on_created(self, event):
         print(event.event_type, event.src_path)
-        connection = pika.BlockingConnection(pika.ConnectionParameters(
+        try:
+            connection = pika.BlockingConnection(pika.ConnectionParameters(
             'localhost'))
-        channel = connection.channel()
-        filename = event.src_path.split(".")
-        if filename[len(filename)-1] == "txt" or filename[len(filename)-1] == "text":
-            channel.queue_declare(queue='Parsing')
-            channel.basic_publish(exchange='',
-                              routing_key='Parsing',
-                              body=event.src_path)
-        else:
-            channel.queue_declare(queue='Errors')
-            channel.basic_publish(exchange='',
-                                  routing_key='Errors',
+            channel = connection.channel()
+            filename = event.src_path.split(".")
+            if filename[len(filename)-1] == "txt" or filename[len(filename)-1] == "text":
+                channel.queue_declare(queue='Parsing')
+                channel.basic_publish(exchange='',
+                                  routing_key='Parsing',
                                   body=event.src_path)
-        print(" [x] Sent ", event.src_path)
-        connection.close()
+            else:
+                channel.queue_declare(queue='Errors')
+                channel.basic_publish(exchange='',
+                                      routing_key='Errors',
+                                      body=event.src_path)
+            print(" [x] Sent ", event.src_path)
+            connection.close()
+        except pika.exceptions.AMQPConnectionError:
+            print("Need to start rabbitmq (pika.exceptions.AMQPConnectionError)")
+            return
 
     # вызывается на событие модификации файла или директории
     def on_modified(self, event):
@@ -42,10 +48,13 @@ def main():
     # logging.basicConfig(level=logging.INFO,
     #                    format='%(asctime)s - %(message)s',
     #                    datefmt='%Y-%m-%d %H:%M:%S')
-    path = r"/home/user/PycharmProjects/test_av/files"  # отслеживаемая директория с нужным файлом
+    print("Start of the \"Sender\" module.")
+    #directory = r"/home/user/PycharmProjects/test_av/files"  # отслеживаемая директория с нужным файлом
+    directory = os.environ.get('DIRECTORY', os.path.join('/tmp')) # load variables from environment variables
+    print(directory)
     event_handler = EventHandler()
     observer = Observer()
-    observer.schedule(event_handler, path, recursive=True)
+    observer.schedule(event_handler, directory, recursive=True)
     observer.start()
     try:
         while True:
